@@ -147,6 +147,50 @@
             50%      { box-shadow: 0 0 18px rgba(56,189,248,0.9); }
         }
         .discover-glow { animation: glowPulse 1.5s ease-in-out infinite; }
+
+        /* ══ 모바일 세로 화면: 게임 + 컨트롤이 화면을 꽉 채우도록 ══ */
+        @media (max-width: 860px) and (orientation: portrait) {
+            html, body { height: 100dvh; overflow: hidden; }
+            body { padding: 0 !important; gap: 0 !important; display: flex !important; flex-direction: column; }
+
+            #top-bar {
+                flex-direction: row !important; flex: 0 0 auto;
+                padding: 4px 6px !important; gap: 4px !important; border-bottom-width: 1px;
+            }
+            #brand-block { display: none !important; }
+            #hud-row { gap: 4px !important; width: 100%; justify-content: center !important; flex-wrap: wrap !important; }
+            #hud-row > div, #hud-row > button {
+                padding: 3px 6px !important; font-size: 10px !important; border-radius: 6px !important;
+            }
+            #sound-box { gap: 4px !important; padding: 3px 7px !important; }
+            .vol-slider { display: none !important; }   /* 좁은 화면에서는 음소거 버튼만 */
+            #vol-label { display: none !important; }
+
+            #main-area {
+                display: flex !important; flex-direction: column;
+                flex: 1 1 auto; min-height: 0;
+                gap: 5px !important; padding: 5px 5px 0; max-width: 100% !important;
+            }
+            #sidebar { display: none !important; }
+            #game-section { flex: 1 1 auto; min-height: 0; width: 100%; gap: 5px !important; }
+            #canvas-wrap {
+                flex: 1 1 auto; min-height: 0;
+                border-width: 3px !important; border-radius: 10px !important;
+            }
+            #gameCanvas { width: 100% !important; height: 100% !important; display: block; }
+
+            #control-bar {
+                flex: 0 0 auto; max-width: 100% !important;
+                padding: 6px 10px !important; gap: 10px !important;
+                border-radius: 12px !important; margin-bottom: 5px;
+            }
+            #control-bar > div:first-child { min-width: 0 !important; gap: 4px !important; }
+            #action-btn    { width: 62px !important; height: 40px !important; font-size: 9px !important; border-radius: 9px !important; }
+            #lowvision-btn { width: 62px !important; height: 30px !important; font-size: 9px !important; }
+            #reset-btn     { width: 62px !important; height: 26px !important; font-size: 9px !important; }
+            .dpad-btn, .dpad-center { width: 46px !important; height: 46px !important; font-size: 1rem !important; }
+            .dpad-center { font-size: 0.55rem !important; }
+        }
     </style>
 </head>
 <body class="min-h-screen text-slate-100 flex flex-col items-center p-3 md:p-5 gap-4 overflow-x-hidden">
@@ -196,15 +240,15 @@
 </div>
 
 <!-- ══════════════════ HUD ══════════════════ -->
-<header class="w-full max-w-6xl flex flex-col md:flex-row justify-between items-center gap-3 border-b border-sky-900/50 pb-3">
-    <div class="flex items-center gap-3">
+<header id="top-bar" class="w-full max-w-6xl flex flex-col md:flex-row justify-between items-center gap-3 border-b border-sky-900/50 pb-3">
+    <div id="brand-block" class="flex items-center gap-3">
         <span class="text-3xl">🏙️</span>
         <div>
             <h1 class="text-xl md:text-2xl font-black text-sky-400 tracking-wider neon-text">배리어 프리 시티</h1>
             <p class="text-[10px] text-emerald-400 font-semibold tracking-wide">우리 동네 접근성 탐험대</p>
         </div>
     </div>
-    <div class="flex items-center gap-2 flex-wrap justify-center">
+    <div id="hud-row" class="flex items-center gap-2 flex-wrap justify-center">
         <div id="hud-discoveries" class="flex items-center gap-1 bg-slate-950/80 px-3 py-1.5 rounded-lg border border-sky-900/30 text-xs">
             <span>🔍</span>
             <span id="hud-discovery-count" class="text-sky-300 font-bold">0/9</span>
@@ -217,7 +261,7 @@
             <span id="hud-diff-icon">🏘️</span>
             <span id="hud-diff-label" class="text-emerald-400 font-bold">우리 동네</span>
         </div>
-        <div class="flex items-center gap-2 bg-slate-950/80 px-3 py-1.5 rounded-lg border border-sky-900/30">
+        <div id="sound-box" class="flex items-center gap-2 bg-slate-950/80 px-3 py-1.5 rounded-lg border border-sky-900/30">
             <button id="sound-icon-btn" onclick="toggleMute()" class="text-sky-400 hover:text-sky-300 text-base leading-none transition" title="음소거 토글">🔊</button>
             <input type="range" id="vol-slider" class="vol-slider" min="0" max="100" value="50">
             <span id="vol-label" class="text-[10px] text-sky-300 font-bold w-7 text-right">50</span>
@@ -229,10 +273,10 @@
 </header>
 
 <!-- ══════════════════ 메인 ══════════════════ -->
-<main class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+<main id="main-area" class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
 
     <!-- 왼쪽: 발견 일지 + 통계 -->
-    <section class="lg:col-span-3 flex flex-col gap-4">
+    <section id="sidebar" class="lg:col-span-3 flex flex-col gap-4">
         <div class="bg-slate-900/95 border-2 border-sky-700/30 p-4 rounded-xl flex flex-col gap-3">
             <h3 class="text-sm font-bold text-emerald-400 flex items-center gap-2">📊 탐험 진행도</h3>
             <div class="bg-slate-950 rounded-full h-4 border border-slate-800 overflow-hidden">
@@ -270,12 +314,12 @@
     </section>
 
     <!-- 게임 영역 -->
-    <section class="lg:col-span-9 flex flex-col items-center gap-4">
-        <div class="relative arcade-window rounded-2xl overflow-hidden crt w-full">
+    <section id="game-section" class="lg:col-span-9 flex flex-col items-center gap-4">
+        <div id="canvas-wrap" class="relative arcade-window rounded-2xl overflow-hidden crt w-full">
             <canvas id="gameCanvas" width="960" height="600" class="w-full block"></canvas>
         </div>
 
-        <div class="w-full max-w-2xl bg-slate-900/60 p-3 rounded-2xl border border-slate-800 flex items-center justify-between gap-4">
+        <div id="control-bar" class="w-full max-w-2xl bg-slate-900/60 p-3 rounded-2xl border border-slate-800 flex items-center justify-between gap-4">
             <div class="flex flex-col gap-2 items-center min-w-[90px]">
                 <button onclick="triggerSenseAction()" id="action-btn"
                     class="w-20 h-14 btn-retro bg-sky-500 hover:bg-sky-400 text-slate-950 font-black rounded-xl text-[10px] shadow-lg leading-tight px-1 text-center">
@@ -285,7 +329,7 @@
                     class="w-20 h-10 btn-retro bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg text-[10px] font-black leading-tight px-1 text-center" style="display:none;">
                     👓<br>암전 체험
                 </button>
-                <button onclick="resetLevel()" class="w-16 h-10 btn-retro bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-[10px] font-bold">
+                <button id="reset-btn" onclick="resetLevel()" class="w-16 h-10 btn-retro bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-[10px] font-bold">
                     🔄 RESET
                 </button>
             </div>
@@ -794,6 +838,7 @@
 
     function startGame(avatar) {
         document.getElementById('start-screen').style.display = 'none';
+        requestAnimationFrame(fitCanvas);
         activeAvatar = avatar;
         lowVision = (avatar === 'jiho');   // 지호는 처음부터 암전 상태로 탐험
         guideGlow = 0;
@@ -1254,6 +1299,7 @@
 
     // ─── 렌더링 ───────────────────────────
     function render() {
+        fitCanvas();
         ctx.save();
         if (screenShake > 0) ctx.translate((Math.random()-0.5)*screenShake, (Math.random()-0.5)*screenShake);
         ctx.translate(-camera.x, -camera.y);
@@ -1589,6 +1635,25 @@
         setTimeout(() => el.classList.add('hidden'), 260);
     }
 
+    // ─── 캔버스 크기 맞추기 (모바일 세로 대응) ───────────────────────────
+    const mobileQuery = window.matchMedia('(max-width: 860px) and (orientation: portrait)');
+
+    function fitCanvas() {
+        if (!mobileQuery.matches) {
+            if (canvas.width !== 960 || canvas.height !== 600) { canvas.width = 960; canvas.height = 600; }
+            return;
+        }
+        const rect = canvas.parentElement.getBoundingClientRect();
+        const w = Math.max(260, Math.round(rect.width));
+        const h = Math.max(260, Math.round(rect.height));
+        if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    }
+
+    window.addEventListener('resize', () => { fitCanvas(); if (!gameLoopActive) drawWaitScreen(); });
+    window.addEventListener('orientationchange', () => setTimeout(() => {
+        fitCanvas(); if (!gameLoopActive) drawWaitScreen();
+    }, 250));
+
     // ─── 메인 루프 ───────────────────────────
     function gameLoop() {
         if (!gameLoopActive) return;
@@ -1604,17 +1669,20 @@
     });
     setVolume(0.5);
 
-    (function drawWaitScreen() {
+    function drawWaitScreen() {
+        fitCanvas();
+        const scale = Math.min(1, canvas.width / 700);
         ctx.fillStyle = "#0f172a";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = "#0c4a6e";
-        ctx.font = "bold 24px 'DungGeunMo', monospace";
+        ctx.font = `bold ${Math.round(24*scale)}px 'DungGeunMo', monospace`;
         ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.fillText("탐험대원을 선택하세요!", canvas.width/2, canvas.height/2 - 10);
         ctx.fillStyle = "#0369a1";
-        ctx.font = "16px 'DungGeunMo', monospace";
-        ctx.fillText("배리어 프리 시티 — 우리 동네 접근성 탐험대", canvas.width/2, canvas.height/2 + 30);
-    })();
+        ctx.font = `${Math.round(16*scale)}px 'DungGeunMo', monospace`;
+        ctx.fillText("배리어 프리 시티", canvas.width/2, canvas.height/2 + 26);
+    }
+    requestAnimationFrame(() => { fitCanvas(); drawWaitScreen(); });
 </script>
 </body>
 </html>
