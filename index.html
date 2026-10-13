@@ -148,6 +148,62 @@
         }
         .discover-glow { animation: glowPulse 1.5s ease-in-out infinite; }
 
+        /* ══ 터치 조작 레이어 (기본은 숨김) ══ */
+        #touch-layer { display: none; position: absolute; inset: 0; z-index: 20; pointer-events: none; }
+
+        #joystick {
+            position: absolute; width: 116px; height: 116px;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(56,189,248,0.16) 0%, rgba(12,74,110,0.26) 70%, rgba(12,74,110,0.10) 100%);
+            border: 2px solid rgba(125,211,252,0.45);
+            box-shadow: 0 0 18px rgba(56,189,248,0.25), inset 0 0 20px rgba(0,0,0,0.35);
+            opacity: 0; transition: opacity 0.14s ease;
+            pointer-events: none;
+        }
+        #joystick.active { opacity: 1; }
+        #joy-knob {
+            position: absolute; left: 50%; top: 50%;
+            width: 50px; height: 50px; border-radius: 50%;
+            transform: translate(-50%, -50%);
+            background: radial-gradient(circle at 35% 30%, #7dd3fc, #0284c7 70%);
+            border: 2px solid #bae6fd;
+            box-shadow: 0 0 14px rgba(56,189,248,0.75);
+        }
+
+        #touch-actions {
+            position: absolute; right: 10px; bottom: 12px;
+            display: flex; flex-direction: column-reverse; gap: 9px;
+            pointer-events: auto;
+        }
+        #touch-actions button, #m-reset {
+            width: 54px; height: 54px; border-radius: 50%;
+            font-size: 22px; line-height: 1;
+            border: 2px solid rgba(186,230,253,0.55);
+            background: rgba(2,132,199,0.55);
+            color: #fff;
+            backdrop-filter: blur(3px);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.45);
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #touch-actions button:active, #m-reset:active { transform: scale(0.92); background: rgba(14,165,233,0.8); }
+        #m-journal   { background: rgba(5,150,105,0.6) !important; border-color: rgba(167,243,208,0.6) !important; }
+        #m-lowvision { background: rgba(217,119,6,0.6) !important; border-color: rgba(253,230,138,0.6) !important; }
+        #m-reset {
+            position: absolute; right: 10px; top: 10px;
+            width: 40px !important; height: 40px !important; font-size: 16px !important;
+            background: rgba(51,65,85,0.6) !important; pointer-events: auto;
+        }
+
+        /* ══ 모바일 세로 화면 ══ */
+        @media (max-width: 860px) and (orientation: portrait) {
+            #touch-layer { display: block; }
+            #control-bar { display: none !important; }   /* 조이스틱이 대신한다 */
+            #canvas-wrap { touch-action: none; }
+        }
+
         /* ══ 모바일 세로 화면: 게임 + 컨트롤이 화면을 꽉 채우도록 ══ */
         @media (max-width: 860px) and (orientation: portrait) {
             html, body {
@@ -331,6 +387,17 @@
     <section id="game-section" class="lg:col-span-9 flex flex-col items-center gap-4">
         <div id="canvas-wrap" class="relative arcade-window rounded-2xl overflow-hidden crt w-full">
             <canvas id="gameCanvas" width="960" height="600" class="w-full block"></canvas>
+
+            <!-- 터치 조작 (모바일 세로에서만 표시) -->
+            <div id="touch-layer">
+                <div id="joystick"><div id="joy-knob"></div></div>
+                <div id="touch-actions">
+                    <button id="m-action"    onpointerdown="triggerSenseAction()">✨</button>
+                    <button id="m-journal"   onpointerdown="openJournalModal()">📒</button>
+                    <button id="m-lowvision" onpointerdown="toggleLowVision()" style="display:none;">💡</button>
+                </div>
+                <button id="m-reset" onpointerdown="resetLevel()">🔄</button>
+            </div>
         </div>
 
         <div id="control-bar" class="w-full max-w-2xl bg-slate-900/60 p-3 rounded-2xl border border-slate-800 flex items-center justify-between gap-4">
@@ -798,9 +865,69 @@
     });
     window.addEventListener('keyup', e => { keys[e.key] = false; });
 
-    let touchMoveDir = { dx: 0, dy: 0 };
-    function startMove(dx, dy) { touchMoveDir.dx = dx; touchMoveDir.dy = dy; }
-    function stopMove() { touchMoveDir.dx = 0; touchMoveDir.dy = 0; }
+    let touchMoveDir = { dx: 0, dy: 0, analog: false };
+    function startMove(dx, dy) { touchMoveDir.dx = dx; touchMoveDir.dy = dy; touchMoveDir.analog = false; }
+    function stopMove() { touchMoveDir.dx = 0; touchMoveDir.dy = 0; touchMoveDir.analog = false; }
+
+    // ─── 원형 조이스틱 (모바일) ───────────────────────────
+    const wrapEl  = document.getElementById('canvas-wrap');
+    const joyEl   = document.getElementById('joystick');
+    const joyKnob = document.getElementById('joy-knob');
+    const JOY_MAX = 46;      // 손잡이가 움직일 수 있는 최대 거리(px)
+    const JOY_DEAD = 0.16;   // 이만큼 안 움직이면 멈춤으로 본다
+    let joyPointer = null, joyOx = 0, joyOy = 0;
+
+    function joyStart(e) {
+        if (!document.getElementById('touch-layer').offsetParent) return;  // 데스크톱이면 무시
+        if (joyPointer !== null) return;
+        const r = wrapEl.getBoundingClientRect();
+        const x = e.clientX - r.left, y = e.clientY - r.top;
+        if (x > r.width * 0.60) return;     // 오른쪽은 버튼 영역이라 제외
+        joyPointer = e.pointerId;
+        joyOx = x; joyOy = y;
+        joyEl.style.left = x + 'px';
+        joyEl.style.top  = y + 'px';
+        joyEl.classList.add('active');
+        joyKnob.style.transform = 'translate(-50%, -50%)';
+        e.preventDefault();
+    }
+
+    function joyMove(e) {
+        if (e.pointerId !== joyPointer) return;
+        const r = wrapEl.getBoundingClientRect();
+        const dx = (e.clientX - r.left) - joyOx;
+        const dy = (e.clientY - r.top)  - joyOy;
+        const dist = Math.hypot(dx, dy);
+        const nx = dist ? dx / dist : 0;
+        const ny = dist ? dy / dist : 0;
+        const pull = Math.min(dist, JOY_MAX);
+        joyKnob.style.transform =
+            `translate(calc(-50% + ${(nx*pull).toFixed(1)}px), calc(-50% + ${(ny*pull).toFixed(1)}px))`;
+
+        const mag = Math.min(1, dist / JOY_MAX);
+        if (mag < JOY_DEAD) {
+            touchMoveDir.dx = 0; touchMoveDir.dy = 0;
+        } else {
+            const m = (mag - JOY_DEAD) / (1 - JOY_DEAD);
+            touchMoveDir.dx = nx * m;
+            touchMoveDir.dy = ny * m;
+            touchMoveDir.analog = true;
+        }
+        e.preventDefault();
+    }
+
+    function joyEnd(e) {
+        if (e.pointerId !== joyPointer) return;
+        joyPointer = null;
+        joyEl.classList.remove('active');
+        joyKnob.style.transform = 'translate(-50%, -50%)';
+        stopMove();
+    }
+
+    wrapEl.addEventListener('pointerdown', joyStart, { passive: false });
+    window.addEventListener('pointermove', joyMove, { passive: false });
+    window.addEventListener('pointerup', joyEnd);
+    window.addEventListener('pointercancel', joyEnd);
 
     // ─── HUD ───────────────────────────
     function buildJournalInto(list, big, onPick) {
@@ -922,10 +1049,13 @@
 
         // 인트로
         setTimeout(() => {
+            const touchHint = mobileQuery.matches
+                ? '📱 화면 왼쪽 아무 곳이나 손가락으로 누른 채 움직이면 캐릭터가 따라갑니다.\n오른쪽 동그란 버튼으로 ✨직감 · 📒수첩을 쓸 수 있어요.\n\n'
+                : '';
             showInfo({
                 icon: '🏙️',
                 title: '탐험 시작!',
-                text: (avatar === 'jiho' ? '지호는 앞이 보이지 않는 탐험대원이에요. 화면은 처음부터 깜깜합니다.\n\n🦯 Space 키(또는 지팡이 버튼)로 바닥을 훑으면 주변이 잠깐 보여요.\n노란 점자블록이나 음향신호기 곁에서는 훨씬 넓게, 오래 보입니다.\n\n지호에게 어두운 화면은 \'체험\'이 아니라 매일의 조건이에요. 그 안에서도 길을 찾을 수 있게 해 주는 것이 지팡이와 안내 시설입니다.\n\n' : '') + (avatar !== 'doyoon'
+                text: touchHint + (avatar === 'jiho' ? '지호는 앞이 보이지 않는 탐험대원이에요. 화면은 처음부터 깜깜합니다.\n\n🦯 Space 키(또는 지팡이 버튼)로 바닥을 훑으면 주변이 잠깐 보여요.\n노란 점자블록이나 음향신호기 곁에서는 훨씬 넓게, 오래 보입니다.\n\n지호에게 어두운 화면은 \'체험\'이 아니라 매일의 조건이에요. 그 안에서도 길을 찾을 수 있게 해 주는 것이 지팡이와 안내 시설입니다.\n\n' : '') + (avatar !== 'doyoon'
                   ? '우리 동네를 둘러보며 모든 시설과 장벽을 발견해 보세요!\n\n노란 점자블록, 파란 경사로 같은 ✅ 시설을 찾으면 누가 도움받는지 배울 수 있어요.\n\n빨간 ⚠️ 표시는 장벽이에요. 무엇이 문제인지, 어떻게 바꿀 수 있을지 함께 생각해 봐요.'
                   : '시내 중심가에는 더 다양한 시설과 장벽이 있어요!\n\n픽토그램, 쉬운 글자 표지판, 조용한 공간 같은 \'잘 안 보이는 시설\'도 찾아보세요.\n\n💡 Space 키나 ✨버튼으로 \'탐험가의 직감\'을 발동하면 미발견 위치가 잠시 빛납니다.')
             });
@@ -983,6 +1113,11 @@
 
     // ─── 직감 발동 ───────────────────────────
     function applyLowVisionButton() {
+        const m = document.getElementById('m-lowvision');
+        if (m) {
+            m.style.display = (activeAvatar === 'jiho') ? 'flex' : 'none';
+            m.textContent = lowVision ? '💡' : '🌑';
+        }
         const btn = document.getElementById('lowvision-btn');
         if (!btn) return;
         if (lowVision) {
@@ -1026,6 +1161,8 @@
     }
 
     function setActionButtonLabel() {
+        const m = document.getElementById('m-action');
+        if (m) m.textContent = lowVision ? '🦯' : '✨';
         const b = document.getElementById('action-btn');
         if (!b) return;
         if (lowVision) {
@@ -1091,12 +1228,14 @@
         if (keys['ArrowDown']  || keys['s']) dy =  1;
         if (keys['ArrowLeft']  || keys['a']) { dx = -1; player.dir = 'left'; }
         if (keys['ArrowRight'] || keys['d']) { dx =  1; player.dir = 'right'; }
+        let analog = false;
         if (touchMoveDir.dx || touchMoveDir.dy) {
             dx = touchMoveDir.dx; dy = touchMoveDir.dy;
-            if (dx < 0) player.dir = 'left';
-            if (dx > 0) player.dir = 'right';
+            analog = touchMoveDir.analog;
+            if (dx < -0.05) player.dir = 'left';
+            if (dx >  0.05) player.dir = 'right';
         }
-        if (dx && dy) { dx *= 0.7071; dy *= 0.7071; }
+        if (!analog && dx && dy) { dx *= 0.7071; dy *= 0.7071; }
 
         player.vx = player.vx * 0.6 + dx * spd * 0.4;
         player.vy = player.vy * 0.6 + dy * spd * 0.4;
