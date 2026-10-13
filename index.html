@@ -150,8 +150,17 @@
 
         /* ══ 모바일 세로 화면: 게임 + 컨트롤이 화면을 꽉 채우도록 ══ */
         @media (max-width: 860px) and (orientation: portrait) {
-            html, body { height: 100dvh; overflow: hidden; }
-            body { padding: 0 !important; gap: 0 !important; display: flex !important; flex-direction: column; }
+            html, body {
+                height: 100vh;    /* 구형 브라우저 대비 */
+                height: 100svh;   /* 주소창·내비바가 펼쳐진 상태 기준 높이 */
+                overflow: hidden;
+            }
+            body {
+                padding: 0 !important; gap: 0 !important;
+                display: flex !important; flex-direction: column;
+                padding-top: env(safe-area-inset-top) !important;
+                padding-bottom: calc(env(safe-area-inset-bottom) + 2px) !important;
+            }
 
             #top-bar {
                 flex-direction: row !important; flex: 0 0 auto;
@@ -169,7 +178,7 @@
             #main-area {
                 display: flex !important; flex-direction: column;
                 flex: 1 1 auto; min-height: 0;
-                gap: 5px !important; padding: 5px 5px 0; max-width: 100% !important;
+                gap: 4px !important; padding: 4px 4px 0; max-width: 100% !important;
             }
             #sidebar { display: none !important; }
             #game-section { flex: 1 1 auto; min-height: 0; width: 100%; gap: 5px !important; }
@@ -181,15 +190,18 @@
 
             #control-bar {
                 flex: 0 0 auto; max-width: 100% !important;
-                padding: 6px 10px !important; gap: 10px !important;
-                border-radius: 12px !important; margin-bottom: 5px;
+                padding: 5px 8px !important; gap: 6px !important;
+                border-radius: 10px !important; margin-bottom: 3px;
             }
-            #control-bar > div:first-child { min-width: 0 !important; gap: 4px !important; }
-            #action-btn    { width: 62px !important; height: 40px !important; font-size: 9px !important; border-radius: 9px !important; }
-            #lowvision-btn { width: 62px !important; height: 30px !important; font-size: 9px !important; }
-            #reset-btn     { width: 62px !important; height: 26px !important; font-size: 9px !important; }
-            .dpad-btn, .dpad-center { width: 46px !important; height: 46px !important; font-size: 1rem !important; }
-            .dpad-center { font-size: 0.55rem !important; }
+            #control-bar > div { min-width: 0 !important; gap: 3px !important; }
+            #action-btn    { width: 56px !important; height: 36px !important; font-size: 8.5px !important; border-radius: 8px !important; }
+            #lowvision-btn { width: 56px !important; height: 26px !important; font-size: 8.5px !important; }
+            #reset-btn     { width: 56px !important; height: 23px !important; font-size: 8.5px !important; }
+            #journal-btn   { display: flex !important; width: 56px !important; height: 56px !important; }
+            .dpad-btn, .dpad-center { width: 40px !important; height: 40px !important; font-size: 0.9rem !important; }
+            .dpad-center { font-size: 0.5rem !important; }
+            .grid.grid-cols-3.gap-2 { gap: 3px !important; }
+            #top-bar { padding: 2px 5px !important; }
         }
     </style>
 </head>
@@ -347,6 +359,13 @@
             <div class="text-[10px] text-slate-500 leading-relaxed max-w-[100px] text-center hidden md:block">
                 방향키 또는<br>화면 패드로<br>이동하세요
             </div>
+            <div class="flex flex-col items-center justify-center">
+                <button onclick="openJournalModal()" id="journal-btn" style="display:none;"
+                    class="btn-retro w-16 h-16 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-xl text-[9px] shadow-lg leading-tight px-1 flex-col items-center justify-center gap-0.5">
+                    <span class="text-xl leading-none">📒</span>
+                    <span>탐험가의<br>수첩</span>
+                </button>
+            </div>
         </div>
     </section>
 </main>
@@ -403,6 +422,25 @@
     </div>
 </div>
 
+<!-- ══════════════════ 탐험가의 수첩 (모바일) ══════════════════ -->
+<div id="journal-modal" class="modal-backdrop fixed inset-0 bg-slate-950/92 backdrop-blur-sm flex items-end sm:items-center justify-center p-3 z-[55]">
+    <div class="bg-slate-900 border-4 border-emerald-500 rounded-2xl w-full max-w-md shadow-2xl flex flex-col max-h-[85vh]">
+        <div class="flex items-center justify-between p-4 border-b border-slate-700/60 flex-shrink-0">
+            <div>
+                <h3 class="text-emerald-400 font-extrabold text-base">📒 탐험가의 수첩</h3>
+                <p class="text-slate-400 text-[11px] mt-0.5">찾은 항목을 눌러 내용을 다시 보세요</p>
+            </div>
+            <span id="journal-modal-count" class="text-sky-300 font-bold text-sm">0/0</span>
+        </div>
+        <div id="journal-list-mobile" class="p-3 space-y-1.5 overflow-y-auto flex-1"></div>
+        <div class="p-3 border-t border-slate-700/60 flex-shrink-0">
+            <button onclick="closeJournalModal()" class="w-full py-3 bg-sky-400 hover:bg-sky-300 text-slate-950 font-black rounded-xl transition active:scale-95 text-sm">
+                탐험으로 돌아가기
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- ══════════════════ 승리 화면 (탐험 일지 제출) ══════════════════ -->
 <div id="win-screen" class="modal-backdrop fixed inset-0 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 z-[60]">
     <div class="relative bg-gradient-to-b from-slate-900 to-sky-950 border-4 border-yellow-400 p-6 rounded-3xl max-w-lg w-full shadow-2xl flex flex-col items-center gap-4 text-center overflow-hidden max-h-[92vh] overflow-y-auto" style="box-shadow: 0 0 50px rgba(234,179,8,0.6);">
@@ -439,7 +477,7 @@
         </div>
 
         <p class="text-sky-300 text-xs font-bold tracking-wider">🌍 배리어 프리는 모두를 위한 디자인입니다</p>
-        <p class="text-slate-400 text-[11px] leading-relaxed">오른쪽 탐험 일지에서 발견한 항목을 누르면<br>내용을 다시 볼 수 있어요. 활동지를 채워 보세요.</p>
+        <p class="text-slate-400 text-[11px] leading-relaxed">📒 <b class="text-emerald-400">탐험가의 수첩</b>을 누르면 찾은 내용을<br>다시 볼 수 있어요. 보면서 활동지를 채워 보세요.</p>
 
         <div class="flex flex-col gap-2 w-full">
             <button onclick="hideModal('win-screen')" class="btn-retro w-full py-3 bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black rounded-xl transition active:scale-95 text-sm">
@@ -750,6 +788,7 @@
         if (e.key === 'Enter') {
             if (document.getElementById('discover-modal').classList.contains('visible')) closeDiscoverModal();
             else if (document.getElementById('info-modal').classList.contains('visible')) closeInfoModal();
+            else if (document.getElementById('journal-modal').classList.contains('visible')) closeJournalModal();
         }
         if (e.key === 'r' || e.key === 'R') { if (gameLoopActive) resetLevel(); }
         if (e.key === 'm' || e.key === 'M') toggleMute();
@@ -762,27 +801,52 @@
     function stopMove() { touchMoveDir.dx = 0; touchMoveDir.dy = 0; }
 
     // ─── HUD ───────────────────────────
-    function renderJournal() {
-        const list = document.getElementById('journal-list');
+    function buildJournalInto(list, big, onPick) {
         list.innerHTML = '';
         discoverableTypes.forEach(typeId => {
             const data = DISCOVERY[typeId];
             const isFound = !!discovered[typeId];
             const div = document.createElement('div');
-            const klass = isFound
+            div.className = isFound
                 ? (data.type === 'feature' ? 'journal-item found' : 'journal-item found-barrier')
                 : 'journal-item not-found';
-            div.className = klass;
+            if (big) { div.style.fontSize = '13px'; div.style.padding = '10px 10px'; }
             const icon = isFound ? data.icon : '❔';
-            const title = isFound ? data.title : '???';
+            const title = isFound ? data.title : '아직 못 찾았어요';
             const tail = isFound ? '<span class="journal-again">다시보기</span>' : '';
-            div.innerHTML = `<span class="journal-icon">${icon}</span><span class="flex-1 truncate">${title}</span>${tail}`;
+            div.innerHTML = `<span class="journal-icon"${big ? ' style="font-size:20px;width:26px"' : ''}>${icon}</span>`
+                          + `<span class="flex-1 truncate">${title}</span>${tail}`;
             if (isFound) {
                 div.style.cursor = 'pointer';
-                div.onclick = () => openDiscoverModal(typeId);
+                div.onclick = () => onPick(typeId);
             }
             list.appendChild(div);
         });
+    }
+
+    function renderJournal() {
+        buildJournalInto(document.getElementById('journal-list'), false, openDiscoverModal);
+        buildJournalInto(document.getElementById('journal-list-mobile'), true, typeId => {
+            hideModal('journal-modal');
+            setTimeout(() => openDiscoverModal(typeId), 120);
+        });
+        const total = discoverableTypes.length;
+        const found = Object.keys(discovered).filter(k => discovered[k]).length;
+        const c = document.getElementById('journal-modal-count');
+        if (c) c.textContent = `${found}/${total}`;
+    }
+
+    // ─── 탐험가의 수첩 ───────────────────────────
+    function openJournalModal() {
+        gameLoopActive = false;
+        renderJournal();
+        showModal('journal-modal');
+    }
+
+    function closeJournalModal() {
+        hideModal('journal-modal');
+        gameLoopActive = true;
+        animFrameId = requestAnimationFrame(gameLoop);
     }
 
     function updateHUD() {
@@ -874,6 +938,7 @@
         hideModal('win-screen');
         hideModal('discover-modal');
         hideModal('info-modal');
+        hideModal('journal-modal');
         document.getElementById('start-screen').style.display = 'flex';
     }
 
