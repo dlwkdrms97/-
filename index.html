@@ -158,6 +158,8 @@
             body {
                 padding: 0 !important; gap: 0 !important;
                 display: flex !important; flex-direction: column;
+                min-height: 0 !important;      /* Tailwind min-h-screen(100vh) 무력화 — 잘림의 원인 */
+                max-height: 100svh;
                 padding-top: env(safe-area-inset-top) !important;
                 padding-bottom: calc(env(safe-area-inset-bottom) + 2px) !important;
             }
@@ -902,7 +904,7 @@
 
     function startGame(avatar) {
         document.getElementById('start-screen').style.display = 'none';
-        requestAnimationFrame(fitCanvas);
+        requestAnimationFrame(() => { applyViewportHeight(); fitCanvas(); });
         activeAvatar = avatar;
         lowVision = (avatar === 'jiho');   // 지호는 처음부터 암전 상태로 탐험
         guideGlow = 0;
@@ -1562,9 +1564,11 @@
                 ctx.stroke();
                 ctx.globalAlpha = guideGlow;
                 ctx.fillStyle = '#fde68a';
-                ctx.font = 'bold 16px sans-serif';
+                ctx.font = `bold ${mobileQuery.matches ? 13 : 16}px sans-serif`;
                 ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillText('안내 시설이 길을 알려줍니다 — 더 넓게, 더 오래 보여요', canvas.width/2, canvas.height - 36);
+                ctx.fillText(mobileQuery.matches ? '안내 시설이 길을 알려줍니다'
+                                                 : '안내 시설이 길을 알려줍니다 — 더 넓게, 더 오래 보여요',
+                             canvas.width/2, canvas.height - 30);
                 ctx.globalAlpha = 1;
             }
         } else {
@@ -1585,19 +1589,25 @@
             ctx.fillStyle = '#94a3b8';
             ctx.font = 'bold 17px sans-serif';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText('🦯  Space 키(또는 지팡이 버튼)로 바닥을 훑어 보세요', canvas.width/2, canvas.height/2 - 12);
-            ctx.font = '13px sans-serif';
+            const mob = mobileQuery.matches;
+            ctx.font = `bold ${mob ? 14 : 17}px sans-serif`;
+            ctx.fillText(mob ? '🦯 지팡이 버튼을 눌러 바닥을 훑어 보세요'
+                             : '🦯  Space 키(또는 지팡이 버튼)로 바닥을 훑어 보세요', canvas.width/2, canvas.height/2 - 12);
+            ctx.font = `${mob ? 11 : 13}px sans-serif`;
             ctx.fillStyle = '#64748b';
-            ctx.fillText('지팡이로 훑으면 주변이 잠깐 보입니다. 점자블록 곁에서는 더 넓게, 더 오래 보입니다.', canvas.width/2, canvas.height/2 + 16);
+            ctx.fillText(mob ? '점자블록 곁에서는 더 넓게, 더 오래 보입니다.'
+                             : '지팡이로 훑으면 주변이 잠깐 보입니다. 점자블록 곁에서는 더 넓게, 더 오래 보입니다.', canvas.width/2, canvas.height/2 + 16);
         }
 
         // 상단 라벨
+        const hint = mobileQuery.matches ? '🦯 지호 · 🦯 버튼으로 지팡이 훑기' : '🦯 지호 · 앞이 보이지 않아요  ·  Space로 지팡이 훑기';
+        const boxW = mobileQuery.matches ? 200 : 256;
         ctx.fillStyle = 'rgba(15,23,42,0.85)';
-        ctx.fillRect(canvas.width/2 - 128, 12, 256, 26);
+        ctx.fillRect(canvas.width/2 - boxW/2, 12, boxW, 26);
         ctx.fillStyle = '#fbbf24';
-        ctx.font = 'bold 13px sans-serif';
+        ctx.font = 'bold 12px sans-serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('🦯 지호 · 앞이 보이지 않아요  ·  Space로 지팡이 훑기', canvas.width/2, 25);
+        ctx.fillText(hint, canvas.width/2, 25);
         ctx.restore();
     }
 
@@ -1703,6 +1713,30 @@
     // ─── 캔버스 크기 맞추기 (모바일 세로 대응) ───────────────────────────
     const mobileQuery = window.matchMedia('(max-width: 860px) and (orientation: portrait)');
 
+    // 주소창·내비게이션 바를 뺀 '실제로 보이는' 높이를 직접 적용한다.
+    function applyViewportHeight() {
+        const body = document.body;
+        if (!mobileQuery.matches) {
+            body.style.height = ''; body.style.minHeight = ''; body.style.maxHeight = '';
+            return;
+        }
+        const vh = Math.round((window.visualViewport && window.visualViewport.height) || window.innerHeight);
+        body.style.minHeight = '0px';
+        body.style.height = vh + 'px';
+        body.style.maxHeight = vh + 'px';
+    }
+
+    function syncLayout() {
+        applyViewportHeight();
+        fitCanvas();
+        if (!gameLoopActive) drawWaitScreen();
+    }
+
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', syncLayout);
+        window.visualViewport.addEventListener('scroll', syncLayout);
+    }
+
     function fitCanvas() {
         if (!mobileQuery.matches) {
             if (canvas.width !== 960 || canvas.height !== 600) { canvas.width = 960; canvas.height = 600; }
@@ -1714,10 +1748,12 @@
         if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     }
 
-    window.addEventListener('resize', () => { fitCanvas(); if (!gameLoopActive) drawWaitScreen(); });
-    window.addEventListener('orientationchange', () => setTimeout(() => {
-        fitCanvas(); if (!gameLoopActive) drawWaitScreen();
-    }, 250));
+    window.addEventListener('resize', syncLayout);
+    window.addEventListener('scroll', applyViewportHeight);
+    window.addEventListener('orientationchange', () => {
+        setTimeout(syncLayout, 150);
+        setTimeout(syncLayout, 500);
+    });
 
     // ─── 메인 루프 ───────────────────────────
     function gameLoop() {
@@ -1747,7 +1783,9 @@
         ctx.font = `${Math.round(16*scale)}px 'DungGeunMo', monospace`;
         ctx.fillText("배리어 프리 시티", canvas.width/2, canvas.height/2 + 26);
     }
-    requestAnimationFrame(() => { fitCanvas(); drawWaitScreen(); });
+    applyViewportHeight();
+    requestAnimationFrame(() => { applyViewportHeight(); fitCanvas(); drawWaitScreen(); });
+    setTimeout(syncLayout, 400);   // 주소창이 자리 잡은 뒤 한 번 더
 </script>
 </body>
 </html>
