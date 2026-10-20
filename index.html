@@ -32,8 +32,38 @@
         .btn-retro { border-bottom: 5px solid rgba(0,0,0,0.4); transition: all 0.08s ease; }
         .btn-retro:active { transform: translateY(3px); border-bottom-width: 2px; }
 
-        .modal-backdrop { opacity: 0; transition: opacity 0.25s ease; pointer-events: none; }
+        /* Tailwind CDN이 차단되어도 모달이 제자리에 뜨도록 직접 지정 */
+        .modal-backdrop {
+            position: fixed; left: 0; right: 0; top: 0; bottom: 0;
+            display: flex; align-items: center; justify-content: center;
+            padding: 14px; box-sizing: border-box;
+            background: rgba(2, 6, 23, 0.92);
+            opacity: 0; transition: opacity 0.25s ease; pointer-events: none;
+        }
         .modal-backdrop.visible { opacity: 1; pointer-events: all; }
+        .modal-backdrop.hidden { display: none; }
+        .modal-backdrop > div {
+            width: 100%; max-width: 430px;
+            background: #0f172a; border-radius: 16px;
+            max-height: 86vh; display: flex; flex-direction: column;
+            box-sizing: border-box;
+        }
+        #journal-modal > div { border: 3px solid #10b981; }
+        #journal-list-mobile { overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px; }
+        /* Tailwind가 차단되어도 읽을 수 있게 하는 최소 서식 */
+        #journal-modal > div > div:first-child {
+            padding: 14px; border-bottom: 1px solid rgba(148,163,184,0.35);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        #journal-modal > div > div:last-child { padding: 12px; border-top: 1px solid rgba(148,163,184,0.35); }
+        #journal-modal h3 { color: #34d399; font-size: 17px; font-weight: 800; margin: 0; }
+        #journal-modal h3 + p { color: #94a3b8; font-size: 12px; margin: 3px 0 0; }
+        #journal-modal-count { color: #7dd3fc; font-weight: 800; font-size: 15px; }
+        #journal-modal button {
+            width: 100%; padding: 13px 0; border: none; border-radius: 12px;
+            background: #38bdf8; color: #0f172a; font-weight: 800; font-size: 15px; cursor: pointer;
+        }
+        #journal-modal button:active { transform: scale(0.97); }
         @keyframes starFloat {
             0% { transform: translateY(0) rotate(0deg); opacity: 1; }
             100% { transform: translateY(-120px) rotate(360deg); opacity: 0; }
@@ -909,8 +939,9 @@
     function renderJournal() {
         buildJournalInto(document.getElementById('journal-list'), false, openDiscoverModal);
         buildJournalInto(document.getElementById('journal-list-mobile'), true, typeId => {
+            const resume = journalResumeGame;
             hideModal('journal-modal');
-            setTimeout(() => openDiscoverModal(typeId), 120);
+            setTimeout(() => { discoverResumeGame = true; openDiscoverModal(typeId); discoverResumeGame = resume; }, 120);
         });
         const total = discoverableTypes.length;
         const found = Object.keys(discovered).filter(k => discovered[k]).length;
@@ -919,7 +950,10 @@
     }
 
     // ─── 탐험가의 수첩 ───────────────────────────
+    let journalResumeGame = false;   // 수첩을 열기 전에 게임이 돌고 있었는지
+
     function openJournalModal() {
+        journalResumeGame = gameLoopActive;   // 끝난 게임이면 false로 기억
         gameLoopActive = false;
         renderJournal();
         showModal('journal-modal');
@@ -927,8 +961,11 @@
 
     function closeJournalModal() {
         hideModal('journal-modal');
-        gameLoopActive = true;
-        animFrameId = requestAnimationFrame(gameLoop);
+        if (journalResumeGame) {              // 탐험 중이었을 때만 다시 시작
+            gameLoopActive = true;
+            if (animFrameId) cancelAnimationFrame(animFrameId);
+            animFrameId = requestAnimationFrame(gameLoop);
+        }
     }
 
     function updateHUD() {
@@ -1696,7 +1733,10 @@
     }
 
     // ─── 발견 카드 ───────────────────────────
+    let discoverResumeGame = true;
+
     function openDiscoverModal(typeId) {
+        discoverResumeGame = gameLoopActive || discoverResumeGame;
         gameLoopActive = false;
         const data = DISCOVERY[typeId];
         const card = document.getElementById('discover-card');
@@ -1734,8 +1774,12 @@
 
     function closeDiscoverModal() {
         hideModal('discover-modal');
-        gameLoopActive = true;
-        animFrameId = requestAnimationFrame(gameLoop);
+        if (discoverResumeGame) {
+            gameLoopActive = true;
+            if (animFrameId) cancelAnimationFrame(animFrameId);
+            animFrameId = requestAnimationFrame(gameLoop);
+        }
+        discoverResumeGame = true;
     }
 
     // ─── 안내 모달 ───────────────────────────
